@@ -9,6 +9,8 @@ import org.bukkit.command.*;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.TextDisplay;
+import org.bukkit.entity.Entity;
 import org.bukkit.event.*;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -229,6 +231,15 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         }
         return null;
     }
+    // A passenger TextDisplay (used by nametag plugins) prevents teleportAsync
+    // on Paper. Detach only these cosmetic passengers, not unrelated mounts.
+    private void detachNametagPassengers(Player player) {
+        for (Entity passenger : new ArrayList<>(player.getPassengers())) {
+            if (passenger instanceof TextDisplay) {
+                player.removePassenger(passenger);
+            }
+        }
+    }
     private void teleportRandom(Player p,String dim) {
         UUID id=p.getUniqueId();
         if(busy.contains(id)) { msg(p,"busy"); return; }
@@ -317,6 +328,9 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
                             nearRecent++;scheduleNext();return;
                         }
                         finished=true;
+                        // Both the /rtp menu and waterfall menu use this path.
+                        // Detach cosmetic nametag before attempting teleport.
+                        detachNametagPassengers(player);
                         player.teleportAsync(target).whenComplete((success,tpError)->
                             Bukkit.getScheduler().runTask(BastionMCRTP.this,()-> {
                                 release();
