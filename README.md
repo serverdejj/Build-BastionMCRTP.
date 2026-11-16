@@ -35,3 +35,14 @@ La busqueda ahora espera cada chunk antes de consumir otro intento. En la consol
 - Mensaje al jugador cuando las busquedas simultaneas estan ocupadas.
 - Los chunks se siguen cargando de forma asincrona y cada busqueda espera a la carga anterior.
 - La generacion de terreno nuevo sigue consumiendo CPU/disco; no garantiza cero lag.
+
+## v1.0.4 - Boton salir y efectos del portal
+- Boton configurable `items.exit` en `menus.yml` (slot 26 para GUI de 27 espacios).
+- Al abrir el menu del portal se aplica Darkness y Slowness, configurables en `config.yml`.
+- Al cerrar el menu, elegir dimension, desconectarse o desactivar el plugin, se restauran los efectos anteriores.
+- Para evitar reapertura continua, el jugador debe salir de la zona de agua y volver a entrar.
+- **IMPORTANTE:** Los archivos `config.yml` y `menus.yml` ya existentes NO se sobrescriben. Puedes copiar manualmente las secciones `portal-effects` e `items.exit` del ZIP a tus archivos actuales. Sin esas secciones, los valores por defecto del codigo funcionan igualmente.
+- Codigo fuente sin compilacion local (Maven no disponible aqui); compilar con GitHub Actions y probar en un servidor de pruebas.
+
+## v1.0.5: colores de menus.yml
+`title`, `items.*.name` y cada linea de `items.*.lore` aceptan MiniMessage, gradientes `<gradient:#...:#...>texto</gradient>` y formato hexadecimal por letra `&#00C135&lE&#46CC69&lJ...`. Edita `plugins/BastionMCRTP/menus.yml` y ejecuta `/bastionrtp reload`. No hace falta borrar la configuracion anterior.

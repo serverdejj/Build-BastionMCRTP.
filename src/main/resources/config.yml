@@ -24,3 +24,10 @@ portal:
 performance:
   max-concurrent-searches: 2
   ticks-between-attempts: 10
+
+# Efectos temporales mientras esta abierto el menu de la cascada.
+portal-effects:
+  enabled: true
+  darkness: true
+  slowness: true
+  slowness-level: 5
