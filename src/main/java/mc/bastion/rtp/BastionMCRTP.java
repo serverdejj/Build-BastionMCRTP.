@@ -126,7 +126,7 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         Player p=e.getPlayer(); UUID id=p.getUniqueId();
         boolean active=inPortal(e.getTo()) && isWater(e.getTo().getBlock());
         if(!active) { inside.remove(id); return; }
-        if(inside.add(id) && p.hasPermission("bastionrtp.use")) openMenu(p);
+        if(inside.add(id)) openMenu(p);
     }
     private void applyPortalEffects(Player p) {
         if (!getConfig().getBoolean("portal-effects.enabled",true)) return;
@@ -351,7 +351,6 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
     @Override public boolean onCommand(CommandSender sender,Command cmd,String label,String[] args) {
         if(cmd.getName().equalsIgnoreCase("rtp")) {
             if(!(sender instanceof Player p)) {sender.sendMessage("Solo jugadores.");return true;}
-            if(!p.hasPermission("bastionrtp.use")) {msg(p,"no-permission");return true;}
             openMenu(p);
             return true;
         }
