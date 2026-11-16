@@ -1,0 +1,14 @@
+name: BastionMCRTP
+version: 1.0.0
+main: mc.bastion.rtp.BastionMCRTP
+api-version: '1.21'
+commands:
+  bastionrtp:
+    description: Configura el portal y abre el RTP
+permissions:
+  bastionrtp.admin:
+    default: op
+  bastionrtp.bypasscooldown:
+    default: op
+  bastionrtp.use:
+    default: true

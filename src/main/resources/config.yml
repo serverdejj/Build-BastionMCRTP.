@@ -1,0 +1,20 @@
+worlds:
+  overworld: world
+  nether: world_nether
+  end: world_the_end
+rtp:
+  overworld:
+    min-distance: 20000
+    max-distance: 250000
+  nether:
+    min-distance: 1000
+    max-distance: 8000
+  end:
+    min-distance: 2000
+    max-distance: 10000
+  max-attempts: 35
+  cooldown-seconds: 300
+portal:
+  world: ''
+  pos1: []
+  pos2: []

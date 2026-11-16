@@ -1,0 +1,24 @@
+title: '<gradient:#41D9FF:#A875FF><bold>BASTION | RTP</bold></gradient>'
+size: 27
+items:
+  overworld:
+    slot: 11
+    material: GRASS_BLOCK
+    name: '<green><bold>OVERWORLD'
+    lore:
+      - '<gray>20,000 - 250,000 bloques'
+      - '<yellow>Click para viajar'
+  nether:
+    slot: 13
+    material: NETHERRACK
+    name: '<red><bold>NETHER'
+    lore:
+      - '<gray>1,000 - 8,000 bloques'
+      - '<yellow>Click para viajar'
+  end:
+    slot: 15
+    material: END_STONE
+    name: '<light_purple><bold>END'
+    lore:
+      - '<gray>2,000 - 10,000 bloques'
+      - '<yellow>Click para viajar'
