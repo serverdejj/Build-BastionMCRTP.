@@ -1,6 +1,7 @@
 package mc.bastion.rtp;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.*;
 import org.bukkit.block.Block;
@@ -93,8 +94,16 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
             matcher.appendReplacement(converted, Matcher.quoteReplacement(replacement));
         }
         matcher.appendTail(converted);
-        try { return mm.deserialize(converted.toString()); }
-        catch (Exception e) { return Component.text(raw); }
+        try {
+            Component result = mm.deserialize(converted.toString());
+            // Bukkit item names and lore inherit italic=true unless explicitly disabled.
+            // Set the root to false so nested colors/gradients inherit non-italic styling.
+            if (!menus.getBoolean("text-format.default-italic", false))
+                result = result.decoration(TextDecoration.ITALIC, false);
+            return result;
+        } catch (Exception e) {
+            return Component.text(raw).decoration(TextDecoration.ITALIC, false);
+        }
     }
     private void msg(Player p,String key,String... vars) {
         String raw=messages.getString("prefix","")+messages.getString(key,key);
@@ -156,7 +165,10 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         for(String dimension:List.of("overworld","nether","end","exit")) {
             String path="items."+dimension+".";
             Material mat=Material.matchMaterial(menus.getString(path+"material",dimension.equals("exit")?"BARRIER":"STONE")); if(mat==null) mat=Material.STONE;
-            ItemStack stack=new ItemStack(mat); ItemMeta meta=stack.getItemMeta();
+            if (dimension.equals("exit") && !menus.getBoolean(path+"enabled", true)) continue;
+            int amount=Math.max(1, Math.min(mat.getMaxStackSize(), menus.getInt(path+"amount",1)));
+            ItemStack stack=new ItemStack(mat,amount); ItemMeta meta=stack.getItemMeta();
+            if (menus.contains(path+"custom-model-data")) meta.setCustomModelData(menus.getInt(path+"custom-model-data"));
             meta.displayName(render(menus.getString(path+"name",dimension.equals("exit")?"<red><bold>SALIR DEL MENU":dimension)));
             meta.lore(menus.getStringList(path+"lore").stream().map(this::render).toList());
             stack.setItemMeta(meta);
@@ -170,7 +182,7 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         if(!(e.getWhoClicked() instanceof Player p) || !"rtp".equals(openMenus.get(p.getUniqueId()))) return;
         if(e.getView().getTopInventory()!=e.getClickedInventory()) { e.setCancelled(true); return; }
         e.setCancelled(true);
-        if(e.getRawSlot()==menus.getInt("items.exit.slot",e.getView().getTopInventory().getSize()-1)) {
+        if(menus.getBoolean("items.exit.enabled",true) && e.getRawSlot()==menus.getInt("items.exit.slot",e.getView().getTopInventory().getSize()-1)) {
             p.closeInventory();
             return;
         }

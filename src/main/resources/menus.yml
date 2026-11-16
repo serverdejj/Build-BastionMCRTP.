@@ -23,7 +23,10 @@ items:
       - '<gray>2,000 - 10,000 bloques'
       - '<yellow>Click para viajar'
   exit:
+    enabled: true
     slot: 26
+    amount: 1
+    # Opcional: custom-model-data: 1234
     material: BARRIER
     name: '&#FF3434&lSALIR DEL MENÚ'
     lore:
@@ -34,3 +37,8 @@ items:
 # MiniMessage: '<gradient:#00C135:#17FF00><bold>EJEMPLO</bold></gradient>'
 # Hex por letra: '&#00C135&lE&#46CC69&lJ&#8CD79C&lE&#D2E2D0&lM&#94EC8B&lP&#55F545&lL&#17FF00&lO'
 # Tambien se admiten &a, &l, &o, &r y otros codigos clasicos.
+
+# Los nombres, descripciones y mensajes no se muestran en cursiva por defecto.
+# Si quieres permitir la cursiva heredada de Minecraft, cambia a true.
+text-format:
+  default-italic: false

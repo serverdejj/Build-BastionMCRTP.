@@ -46,3 +46,12 @@ La busqueda ahora espera cada chunk antes de consumir otro intento. En la consol
 
 ## v1.0.5: colores de menus.yml
 `title`, `items.*.name` y cada linea de `items.*.lore` aceptan MiniMessage, gradientes `<gradient:#...:#...>texto</gradient>` y formato hexadecimal por letra `&#00C135&lE&#46CC69&lJ...`. Edita `plugins/BastionMCRTP/menus.yml` y ejecuta `/bastionrtp reload`. No hace falta borrar la configuracion anterior.
+
+
+## v1.0.6 — texto sin cursiva y botón Salir configurable
+
+En `plugins/BastionMCRTP/menus.yml` se puede editar `items.exit.enabled`, `slot`, `material`, `amount`, `name`, `lore` y opcionalmente `custom-model-data`. El botón cierra el menú y limpia los efectos temporales del portal.
+
+La opción `text-format.default-italic: false` evita la cursiva heredada por defecto en nombres, lore, título y mensajes. Puedes usar `<italic>` o `&o` si deseas cursiva en un fragmento concreto.
+
+**Importante:** si ya tienes `menus.yml` en el servidor, Bukkit no lo sobrescribe. Añade manualmente las nuevas opciones del `menus.yml` incluido en el ZIP, o guarda copia de tu archivo y elimina el anterior para regenerarlo tras reiniciar. Usa `/bastionrtp reload` para recargar cambios de texto.
