@@ -13,3 +13,4 @@ teleport-success: '<green>¡Teletransportado a {world}! <gray>({x}, {z})'
 teleport-failed: '<red>No se pudo completar el teletransporte.'
 busy: '<yellow>Ya estás buscando un destino.'
 usage: '<yellow>Usa /bastionrtp pos1, pos2, setportal, reload o menu.'
+server-busy: "<yellow>El RTP esta ocupado. Intenta de nuevo en unos segundos."

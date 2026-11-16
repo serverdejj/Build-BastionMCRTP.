@@ -23,3 +23,15 @@ Archivos `plugins/BastionMCRTP/config.yml`, `messages.yml`, `menus.yml`. Comprue
 
 ## Permisos
 `bastionrtp.admin` (OP), `bastionrtp.use` (todos), `bastionrtp.bypasscooldown` (OP).
+
+## Diagnostico v1.0.1
+La busqueda ahora espera cada chunk antes de consumir otro intento. En la consola de Holy Hosting busca `[RTP] Inicio`, `[RTP] EXITO` o `[RTP] SIN DESTINO`; este ultimo indica cuantas ubicaciones fueron rechazadas por terreno, borde, destinos recientes o errores de carga. Si el borde es menor que el rango minimo, amplia el world border o ajusta el rango.
+
+## Optimizaciones 1.0.2
+- Maximo 2 busquedas RTP simultaneas (configurable).
+- Pausa de 10 ticks entre intentos rechazados (configurable).
+- El End usa heightmap en lugar de recorrer verticalmente toda la columna.
+- Limite de 200 intentos aunque se configure mas, para evitar carga accidental excesiva.
+- Mensaje al jugador cuando las busquedas simultaneas estan ocupadas.
+- Los chunks se siguen cargando de forma asincrona y cada busqueda espera a la carga anterior.
+- La generacion de terreno nuevo sigue consumiendo CPU/disco; no garantiza cero lag.

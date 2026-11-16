@@ -27,12 +27,14 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
     private final Set<UUID> inside = new HashSet<>(), busy = new HashSet<>();
     private final Map<UUID, String> openMenus = new HashMap<>();
     private final Map<String, Deque<Location>> recent = new HashMap<>();
+    private final Set<UUID> activeSearches = new HashSet<>();
 
     @Override public void onEnable() {
         saveDefaultConfig(); saveResourceIfMissing("messages.yml"); saveResourceIfMissing("menus.yml"); loadFiles();
         getServer().getPluginManager().registerEvents(this, this);
         Objects.requireNonNull(getCommand("bastionrtp")).setExecutor(this);
     }
+    @Override public void onDisable() { activeSearches.clear(); busy.clear(); inside.clear(); openMenus.clear(); }
     private void saveResourceIfMissing(String name) { if (!new File(getDataFolder(),name).exists()) saveResource(name,false); }
     private void loadFiles() {
         messages=YamlConfiguration.loadConfiguration(new File(getDataFolder(),"messages.yml"));
@@ -86,7 +88,7 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         }
     }
     @EventHandler public void onClose(org.bukkit.event.inventory.InventoryCloseEvent e) { openMenus.remove(e.getPlayer().getUniqueId()); }
-    @EventHandler public void onQuit(org.bukkit.event.player.PlayerQuitEvent e) { UUID id=e.getPlayer().getUniqueId(); inside.remove(id);busy.remove(id);openMenus.remove(id); }
+    @EventHandler public void onQuit(org.bukkit.event.player.PlayerQuitEvent e) { UUID id=e.getPlayer().getUniqueId(); inside.remove(id);busy.remove(id);activeSearches.remove(id);openMenus.remove(id); }
     private boolean hazardous(Material m) {
         return m==Material.LAVA || m==Material.MAGMA_BLOCK || m==Material.CACTUS || m==Material.FIRE || m==Material.SOUL_FIRE
             || m==Material.CAMPFIRE || m==Material.SOUL_CAMPFIRE || m==Material.POWDER_SNOW || m==Material.WITHER_ROSE;
@@ -100,6 +102,11 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
     }
     private Location findSafe(World w,String dim,int x,int z) {
         if(dim.equals("overworld")) {
+            int y=w.getHighestBlockYAt(x,z,HeightMap.MOTION_BLOCKING_NO_LEAVES)+1;
+            return safe(w,x,y,z)?new Location(w,x+0.5,y,z+0.5):null;
+        }
+        // El End no tiene techo de bedrock: la heightmap evita escanear cientos de bloques vacios.
+        if(dim.equals("end")) {
             int y=w.getHighestBlockYAt(x,z,HeightMap.MOTION_BLOCKING_NO_LEAVES)+1;
             return safe(w,x,y,z)?new Location(w,x+0.5,y,z+0.5):null;
         }
@@ -120,39 +127,117 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         long wait=Math.max(0,(getConfig().getLong("rtp.cooldown-seconds",300)*1000-(now-last)+999)/1000);
         if(wait>0&&!p.hasPermission("bastionrtp.bypasscooldown")&&!p.isOp()) {msg(p,"cooldown","seconds",Long.toString(wait));return;}
         World w=Bukkit.getWorld(getConfig().getString("worlds."+dim,""));
-        if(w==null) {msg(p,"world-missing");return;}
+        if(w==null) {
+            getLogger().warning("[RTP] Mundo no cargado: dimension="+dim+", configurado="+getConfig().getString("worlds."+dim));
+            msg(p,"world-missing");return;
+        }
         int min=getConfig().getInt("rtp."+dim+".min-distance"),max=getConfig().getInt("rtp."+dim+".max-distance");
-        if(min<0||max<=min) {msg(p,"teleport-failed");return;}
-        busy.add(id);msg(p,"searching");
-        new BukkitRunnable() {
-            int tries=0;
-            @Override public void run() {
-                if(!p.isOnline()||!busy.contains(id)) {busy.remove(id);cancel();return;}
-                if(tries++>=Math.max(1,getConfig().getInt("rtp.max-attempts",35))) {busy.remove(id);msg(p,"no-safe-location");cancel();return;}
-                ThreadLocalRandom random=ThreadLocalRandom.current();
-                double theta=random.nextDouble(0,2*Math.PI);
-                double radius=Math.sqrt(random.nextDouble((double)min*min,(double)max*max));
-                int x=(int)Math.round(Math.cos(theta)*radius),z=(int)Math.round(Math.sin(theta)*radius);
-                if(!w.getWorldBorder().isInside(new Location(w,x+0.5,Math.max(w.getMinHeight(),64),z+0.5))) return;
-                // Chunk generation is deliberately bounded to one attempt every 2 ticks.
-                w.getChunkAtAsync(x>>4,z>>4,true).thenAccept(chunk -> Bukkit.getScheduler().runTask(BastionMCRTP.this,()->{
-                    if(!p.isOnline()||!busy.contains(id)) return;
-                    Location target=findSafe(w,dim,x,z);
-                    if(target==null) return;
-                    Deque<Location> history=recent.computeIfAbsent(dim,k->new ArrayDeque<>());
-                    if(history.stream().anyMatch(loc->loc.distanceSquared(target)<90000)) return;
-                    busy.remove(id);cancel();
-                    p.teleportAsync(target).thenAccept(success->Bukkit.getScheduler().runTask(BastionMCRTP.this,()->{
-                        if(!p.isOnline()) return;
-                        if(success) {
-                            cooldown.put(id,System.currentTimeMillis());history.addLast(target);
-                            while(history.size()>40)history.removeFirst();
-                            msg(p,"teleport-success","world",dim,"x",Integer.toString(x),"z",Integer.toString(z));
-                        } else msg(p,"teleport-failed");
-                    }));
-                })).exceptionally(ex->{getLogger().warning("Chunk RTP: "+ex.getMessage());return null;});
+        if(min<0||max<=min) {
+            getLogger().warning("[RTP] Rango invalido para "+dim+": minimo="+min+", maximo="+max);
+            msg(p,"teleport-failed");return;
+        }
+        int maximumConcurrent=Math.max(1,Math.min(8,getConfig().getInt("performance.max-concurrent-searches",2)));
+        if(activeSearches.size()>=maximumConcurrent) { msg(p,"server-busy"); return; }
+        busy.add(id);activeSearches.add(id);msg(p,"searching");
+        int limit=Math.max(1,Math.min(200,getConfig().getInt("rtp.max-attempts",35)));
+        getLogger().info("[RTP] Inicio: jugador="+p.getName()+", dimension="+dim+", mundo="+w.getName()+
+                ", rango="+min+"-"+max+", intentos="+limit+", borde="+w.getWorldBorder().getSize());
+        new SearchTask(p,id,w,dim,min,max,limit).next();
+    }
+
+    // Un solo chunk en vuelo por jugador: el contador avanza DESPUES de recibir el resultado.
+    private final class SearchTask {
+        final Player player;
+        final UUID id;
+        final World world;
+        final String dimension;
+        final int min,max,limit;
+        int attempts,unsafe,outsideBorder,nearRecent,chunkErrors;
+        boolean finished;
+
+        SearchTask(Player player,UUID id,World world,String dimension,int min,int max,int limit) {
+            this.player=player;this.id=id;this.world=world;this.dimension=dimension;
+            this.min=min;this.max=max;this.limit=limit;
+        }
+        boolean active() {
+            if(finished || !BastionMCRTP.this.isEnabled()) return false;
+            if(!player.isOnline() || !busy.contains(id)) {
+                finished=true;activeSearches.remove(id);busy.remove(id);return false;
             }
-        }.runTaskTimer(this,1L,2L);
+            return true;
+        }
+        void release() { activeSearches.remove(id);busy.remove(id); }
+        void next() {
+            if(!active()) return;
+            if(attempts>=limit) {
+                finished=true;release();
+                getLogger().warning("[RTP] SIN DESTINO: jugador="+player.getName()+", dimension="+dimension+
+                        ", mundo="+world.getName()+", intentos="+attempts+", terreno-inseguro="+unsafe+
+                        ", fuera-del-borde="+outsideBorder+", cerca-de-RTP-reciente="+nearRecent+
+                        ", errores-de-chunk="+chunkErrors+". Comprueba world border, terreno y consola.");
+                msg(player,"no-safe-location");return;
+            }
+            attempts++;
+            ThreadLocalRandom random=ThreadLocalRandom.current();
+            double theta=random.nextDouble(0,2*Math.PI);
+            double radius=Math.sqrt(random.nextDouble((double)min*min,(double)max*max));
+            int x=(int)Math.round(Math.cos(theta)*radius), z=(int)Math.round(Math.sin(theta)*radius);
+            if(!world.getWorldBorder().isInside(new Location(world,x+0.5,Math.max(world.getMinHeight(),64),z+0.5))) {
+                outsideBorder++;scheduleNext();return;
+            }
+            try {
+                world.getChunkAtAsync(x>>4,z>>4,true).whenComplete((chunk,error)-> {
+                    Bukkit.getScheduler().runTask(BastionMCRTP.this,()-> {
+                        if(!active()) return;
+                        if(error!=null || chunk==null) {
+                            chunkErrors++;
+                            getLogger().warning("[RTP] Error cargando chunk en "+world.getName()+
+                                    " x="+x+" z="+z+" intento="+attempts+": "+(error==null?"chunk nulo":error.toString()));
+                            scheduleNext();return;
+                        }
+                        Location target;
+                        try {target=findSafe(world,dimension,x,z);}
+                        catch(Exception ex) {
+                            chunkErrors++;
+                            getLogger().warning("[RTP] Error evaluando terreno en x="+x+" z="+z+": "+ex);
+                            scheduleNext();return;
+                        }
+                        if(target==null) {unsafe++;scheduleNext();return;}
+                        Deque<Location> history=recent.computeIfAbsent(dimension,k->new ArrayDeque<>());
+                        if(history.stream().anyMatch(loc->loc.getWorld().equals(world) && loc.distanceSquared(target)<90000)) {
+                            nearRecent++;scheduleNext();return;
+                        }
+                        finished=true;
+                        player.teleportAsync(target).whenComplete((success,tpError)->
+                            Bukkit.getScheduler().runTask(BastionMCRTP.this,()-> {
+                                release();
+                                if(!player.isOnline()) return;
+                                if(tpError==null && Boolean.TRUE.equals(success)) {
+                                    cooldown.put(id,System.currentTimeMillis());
+                                    history.addLast(target);
+                                    while(history.size()>40)history.removeFirst();
+                                    getLogger().info("[RTP] EXITO: "+player.getName()+" -> "+world.getName()+
+                                            " x="+x+" y="+target.getBlockY()+" z="+z+" tras "+attempts+" intentos");
+                                    msg(player,"teleport-success","world",dimension,"x",Integer.toString(x),"z",Integer.toString(z));
+                                } else {
+                                    getLogger().warning("[RTP] Fallo de teleportAsync para "+player.getName()+
+                                            " a "+world.getName()+" x="+x+" z="+z+": "+tpError);
+                                    msg(player,"teleport-failed");
+                                }
+                            })
+                        );
+                    });
+                });
+            } catch(Exception ex) {
+                chunkErrors++;
+                getLogger().warning("[RTP] No se pudo iniciar carga de chunk x="+x+" z="+z+": "+ex);
+                scheduleNext();
+            }
+        }
+        void scheduleNext() {
+            if(active()) Bukkit.getScheduler().runTaskLater(BastionMCRTP.this,this::next,
+                Math.max(2L,getConfig().getLong("performance.ticks-between-attempts",10L)));
+        }
     }
     @Override public boolean onCommand(CommandSender sender,Command cmd,String label,String[] args) {
         if(!(sender instanceof Player p)) {sender.sendMessage("Solo jugadores.");return true;}

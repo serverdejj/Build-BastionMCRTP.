@@ -18,3 +18,9 @@ portal:
   world: ''
   pos1: []
   pos2: []
+
+# Rendimiento: maximo de jugadores buscando RTP al mismo tiempo.
+# Menos concurrencia = menos picos de generacion de chunks.
+performance:
+  max-concurrent-searches: 2
+  ticks-between-attempts: 10
