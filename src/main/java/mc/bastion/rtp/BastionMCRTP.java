@@ -240,6 +240,19 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
             }
         }
     }
+    // Coordinate with BastionMCNameTangs without a hard dependency.
+    // Removing only the passenger is insufficient: its updater remounts it.
+    private void prepareNametagTravel(Player player) {
+        org.bukkit.plugin.Plugin plugin = Bukkit.getPluginManager().getPlugin("BastionMCNameTangs");
+        if (plugin != null && plugin.isEnabled()) {
+            try {
+                plugin.getClass().getMethod("prepareRtpTravel", Player.class).invoke(plugin, player);
+            } catch (ReflectiveOperationException ex) {
+                getLogger().warning("BastionMCNameTangs requiere la version compatible: " + ex.getClass().getSimpleName());
+            }
+        }
+        detachNametagPassengers(player);
+    }
     private void teleportRandom(Player p,String dim) {
         UUID id=p.getUniqueId();
         if(busy.contains(id)) { msg(p,"busy"); return; }
@@ -258,6 +271,7 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         }
         int maximumConcurrent=Math.max(1,Math.min(8,getConfig().getInt("performance.max-concurrent-searches",2)));
         if(activeSearches.size()>=maximumConcurrent) { msg(p,"server-busy"); return; }
+        prepareNametagTravel(p);
         busy.add(id);activeSearches.add(id);msg(p,"searching");
         int limit=Math.max(1,Math.min(200,getConfig().getInt("rtp.max-attempts",35)));
         getLogger().info("[RTP] Inicio: jugador="+p.getName()+", dimension="+dim+", mundo="+w.getName()+
@@ -330,7 +344,7 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
                         finished=true;
                         // Both the /rtp menu and waterfall menu use this path.
                         // Detach cosmetic nametag before attempting teleport.
-                        detachNametagPassengers(player);
+                        prepareNametagTravel(player);
                         player.teleportAsync(target).whenComplete((success,tpError)->
                             Bukkit.getScheduler().runTask(BastionMCRTP.this,()-> {
                                 release();
