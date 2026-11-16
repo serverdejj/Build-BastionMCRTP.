@@ -42,6 +42,7 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         saveDefaultConfig(); saveResourceIfMissing("messages.yml"); saveResourceIfMissing("menus.yml"); loadFiles();
         getServer().getPluginManager().registerEvents(this, this);
         Objects.requireNonNull(getCommand("bastionrtp")).setExecutor(this);
+        Objects.requireNonNull(getCommand("rtp")).setExecutor(this);
     }
     @Override public void onDisable() {
         for (UUID id : new HashSet<>(portalEffectActive)) {
@@ -348,8 +349,14 @@ public final class BastionMCRTP extends JavaPlugin implements Listener, CommandE
         }
     }
     @Override public boolean onCommand(CommandSender sender,Command cmd,String label,String[] args) {
+        if(cmd.getName().equalsIgnoreCase("rtp")) {
+            if(!(sender instanceof Player p)) {sender.sendMessage("Solo jugadores.");return true;}
+            if(!p.hasPermission("bastionrtp.use")) {msg(p,"no-permission");return true;}
+            openMenu(p);
+            return true;
+        }
         if(!(sender instanceof Player p)) {sender.sendMessage("Solo jugadores.");return true;}
-        if(!p.hasPermission("bastionrtp.admin")) {msg(p,"no-permission");return true;}
+        if(!p.isOp()) {msg(p,"no-permission");return true;}
         if(args.length==0) {msg(p,"usage");return true;}
         UUID id=p.getUniqueId();
         switch(args[0].toLowerCase(Locale.ROOT)) {

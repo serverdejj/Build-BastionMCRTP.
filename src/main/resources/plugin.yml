@@ -1,10 +1,17 @@
 name: BastionMCRTP
-version: 1.0.6
+version: 1.0.7
 main: mc.bastion.rtp.BastionMCRTP
 api-version: '1.21'
 commands:
+  rtp:
+    description: Abre el menu de teletransporte aleatorio
+    usage: /rtp
+    permission: bastionrtp.use
+    permission-message: No tienes permiso.
   bastionrtp:
-    description: Configura el portal y abre el RTP
+    description: Comandos administrativos del RTP
+    permission: bastionrtp.admin
+    permission-message: No tienes permiso.
 permissions:
   bastionrtp.admin:
     default: op
